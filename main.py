@@ -55,24 +55,17 @@ class StackActivity(WebSocketClientProtocol):
         print("Opened.")
 
     def onMessage(self, payload, is_binary):
-        try:
-            d = json.loads(payload.decode("utf-8"))
-            for roomid, data in d.items():
-                if "e" not in data: #some kind of keepalive message that we don't care about
-                    continue
-                for event in data["e"]:
-                    event_type = event["event_type"]
-                    print(event_type_names[event_type])
-                    if event_type == 1: #ordinary user message
-                        content = html.unescape(event["content"])
-                        content = abbreviate(content, 40)
-                        print("{}: {}".format(event["user_name"], content))
-        except:
-            outputfilename = "logs/{}_failed_payload.dat".format(int(time.time()))
-            with open(outputfilename, "wb") as file:
-                file.write(payload)
-            print("Failed to decode payload! Data written to {}.".format(outputfilename))
-            raise
+        d = json.loads(payload.decode("utf-8"))
+        for roomid, data in d.items():
+            if "e" not in data: #some kind of keepalive message that we don't care about
+                continue
+            for event in data["e"]:
+                event_type = event["event_type"]
+                print(event_type_names[event_type])
+                if event_type == 1: #ordinary user message
+                    content = html.unescape(event["content"])Or
+                    content = abbreviate(content, 40)
+                    print("{}: {}".format(event["user_name"], content))
 
     def onClose(self, was_clean, code, reason):
           print('Closed:', reason)
