@@ -46,9 +46,9 @@ def get_ws_url(roomid):
     url = json.loads(x.text)["url"] + "?l=99999999"
     return url
 
-def query_messages_test():
+def query_messages_test(roomid):
     x = requests.post(
-        "http://chat.stackoverflow.com/chats/6/events",
+        "http://chat.stackoverflow.com/chats/{}/events".format(roomid),
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         data = "since=0&mode=Messages&msgCount=10&fkey=" + fkey
     )
@@ -60,11 +60,11 @@ def query_messages_test():
     for event in data["events"]:
         print("{}: {}".format(event["user_name"], event["content"]))
 
-def post_message_test(text):
+def post_message_test(roomid, text):
     s = "text={}&fkey={}".format(html.escape(text), fkey)
 
     x = requests.post(
-        "https://chat.stackoverflow.com/chats/1/messages/new",
+        "https://chat.stackoverflow.com/chats/{}/messages/new".format(roomid),
         headers={
             "Content-Length": str(len(s)),
             "Content-Type": "application/x-www-form-urlencoded",
@@ -74,3 +74,15 @@ def post_message_test(text):
     )
 
     print(x.status_code, x.reason)
+
+def post_join_test(roomid):
+    s = "fkey={}".format(fkey)
+    x = requests.post("https://chat.stackoverflow.com/chats/{}/join".format(roomid),
+            headers={
+            "Content-Length": str(len(s)),
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cookie": cookie,
+        },
+        data=s
+    )
+    print (x.status_code, x.reason)
