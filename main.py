@@ -10,8 +10,37 @@ import postquery
 import asyncio
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 import json
+import html
 import time
 from pprint import pprint
+
+event_type_names = [
+    "placeholder because ids are 1-indexed",
+    "message posted",
+    "message edited",
+    "user entered",
+    "user left",
+    "room name changed",
+    "message starred",
+    "UNKNOWN",
+    "user mentioned",
+    "message flagged",
+    "message deleted",
+    "file added",
+    "moderator flag",
+    "user settings chagned",
+    "global notification",
+    "account level changed",
+    "user notification",
+    "invitation",
+    "message reply",
+    "message moved out",
+    "message moved in",
+    "time break",
+    "feed ticker",
+    "user suspended",
+    "user merged",
+]
 
 def abbreviate(msg, maxlen=25):
     if len(msg) < maxlen: return msg
@@ -33,11 +62,11 @@ class StackActivity(WebSocketClientProtocol):
                     continue
                 for event in data["e"]:
                     event_type = event["event_type"]
-                    if event_type == 1:
-                        print("Message from {}: {}".format(event["user_name"], abbreviate(event["content"], 40)))
-                    else:
-                        print("Unrecognized event type {}! Payload:".format(event_type))
-                        print(d)
+                    print(event_type_names[event_type])
+                    if event_type == 1: #ordinary user message
+                        content = html.unescape(event["content"])
+                        content = abbreviate(content, 40)
+                        print("{}: {}".format(event["user_name"], content))
         except:
             outputfilename = "logs/{}_failed_payload.dat".format(int(time.time()))
             with open(outputfilename, "wb") as file:
