@@ -1,5 +1,6 @@
 import requests
 import json
+import html
 import sys
 import websockets
 import asyncio
@@ -38,8 +39,8 @@ def query_messages_test():
     for event in data["events"]:
         print("{}: {}".format(event["user_name"], event["content"]))
 
-def post_message_test():
-    s = "text=test&fkey=" + config.fkey
+def post_message_test(text):
+    s = "text={}&fkey={}".format(html.escape(text), config.fkey)
 
     x = requests.post(
         "https://chat.stackoverflow.com/chats/1/messages/new",
