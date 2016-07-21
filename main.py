@@ -13,6 +13,10 @@ import json
 import time
 from pprint import pprint
 
+def abbreviate(msg, maxlen=25):
+    if len(msg) < maxlen: return msg
+    return msg[:maxlen-3] + "..."
+
 class StackActivity(WebSocketClientProtocol):
 
     def onConnect(self, response):
@@ -22,15 +26,24 @@ class StackActivity(WebSocketClientProtocol):
         print("Opened.")
 
     def onMessage(self, payload, is_binary):
-        print("Got message.")
         try:
             d = json.loads(payload.decode("utf-8"))
-            print(d)
+            for roomid, data in d.items():
+                if "e" not in data: #some kind of keepalive message that we don't care about
+                    continue
+                for event in data["e"]:
+                    event_type = event["event_type"]
+                    if event_type == 1:
+                        print("Message from {}: {}".format(event["user_name"], abbreviate(event["content"], 40)))
+                    else:
+                        print("Unrecognized event type {}! Payload:".format(event_type))
+                        print(d)
         except:
             outputfilename = "logs/{}_failed_payload.dat".format(int(time.time()))
             with open(outputfilename, "wb") as file:
                 file.write(payload)
             print("Failed to decode payload! Data written to {}.".format(outputfilename))
+            raise
 
     def onClose(self, was_clean, code, reason):
           print('Closed:', reason)
