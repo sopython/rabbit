@@ -10,6 +10,7 @@ import postquery
 import asyncio
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 import json
+import time
 from pprint import pprint
 
 class StackActivity(WebSocketClientProtocol):
@@ -21,9 +22,15 @@ class StackActivity(WebSocketClientProtocol):
         print("Opened.")
 
     def onMessage(self, payload, is_binary):
-          print("Got message.")
-          print(payload)
-          #loop.stop()
+        print("Got message.")
+        try:
+            d = json.loads(payload.decode("utf-8"))
+            print(d)
+        except:
+            outputfilename = "logs/{}_failed_payload.dat".format(int(time.time()))
+            with open(outputfilename, "wb") as file:
+                file.write(payload)
+            print("Failed to decode payload! Data written to {}.".format(outputfilename))
 
     def onClose(self, was_clean, code, reason):
           print('Closed:', reason)
