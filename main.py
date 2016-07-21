@@ -63,9 +63,8 @@ class StackActivity(WebSocketClientProtocol):
                 event_type = event["event_type"]
                 print(event_type_names[event_type])
                 if event_type == 1: #ordinary user message
-                    content = html.unescape(event["content"])Or
-                    content = abbreviate(content, 40)
-                    print("{}: {}".format(event["user_name"], content))
+                    content = html.unescape(event["content"])
+                    print(abbreviate("{}: {}".format(event["user_name"], content), 119))
 
     def onClose(self, was_clean, code, reason):
           print('Closed:', reason)
