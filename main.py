@@ -65,6 +65,9 @@ class StackActivity(WebSocketClientProtocol):
                 if event_type == 1: #ordinary user message
                     content = html.unescape(event["content"])
                     print(abbreviate("{}: {}".format(event["user_name"], content), 119))
+                    if event["user_name"] == "Kevin" and content == "!ping":
+                        print("Detected a command. Replying...")
+                        postquery.post_message_test("pong")
 
     def onClose(self, was_clean, code, reason):
           print('Closed:', reason)
