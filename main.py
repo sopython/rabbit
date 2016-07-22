@@ -130,7 +130,7 @@ def create_admin_window(message_queue):
         root.destroy()
 
     root = Tk()
-    box = Entry(root)
+    box = Entry(root, width=100)
     box.pack()
     button = Button(root, text="submit", command=clicked)
     button.pack()
