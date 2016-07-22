@@ -103,6 +103,9 @@ def create_websocket(message_queue = None):
         elif msg.startswith("cancel"):
             messageId = msg.partition(" ")[2]
             postquery.post_cancel_stars(messageId)
+        elif msg.startswith("move"):
+            messageIds = msg.partition(" ")[2].split()
+            postquery.post_move_messages(118024, messageIds, 71097)
         else:
             print("Sorry, didn't understand that command.")
 
