@@ -62,7 +62,6 @@ class StackActivity(WebSocketClientProtocol):
                 continue
             for event in data["e"]:
                 event_type = event["event_type"]
-                print(event_type_names[event_type])
                 if event_type == 1: #ordinary user message
                     content = html.unescape(event["content"])
                     print(abbreviate("{}: {}".format(event["user_name"], content), 119))
@@ -73,6 +72,11 @@ class StackActivity(WebSocketClientProtocol):
                         if content == "!ping":
                             print("Detected a command. Replying...")
                             postquery.post_message_test(1, "pong")
+                elif event_type in (3,4): #user entered/left
+                    action = {3:"entered", 4:"left"}[event_type]
+                    print("user {} {} room {}".format(repr(event["user_name"]), action, repr(event["room_name"])))
+                else:
+                    print(event_type_names[event_type])
 
     def onClose(self, was_clean, code, reason):
           print('Closed:', reason)
