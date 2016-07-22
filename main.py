@@ -15,6 +15,9 @@ import time
 from pprint import pprint
 from queue import Queue
 
+PERSONAL_SANDBOX_ROOMID = 118024
+ROTATING_KNIVES_ROOMID = 71097
+
 event_type_names = [
     "placeholder because ids are 1-indexed",
     "message posted",
@@ -91,9 +94,9 @@ def create_websocket(message_queue = None):
             print("Shutting down...")
             import sys; sys.exit(0)
         elif msg == "join":
-            postquery.join(118024)
+            postquery.join(PERSONAL_SANDBOX_ROOMID)
         elif msg.startswith("say"):
-            postquery.send_message(118024, msg.partition(" ")[2])
+            postquery.send_message(PERSONAL_SANDBOX_ROOMID, msg.partition(" ")[2])
         elif msg.startswith("leave"):
             roomid = msg.partition(" ")[2]
             postquery.leave(roomid)
@@ -102,14 +105,14 @@ def create_websocket(message_queue = None):
             postquery.cancel_stars(messageId)
         elif msg.startswith("move"):
             messageIds = msg.partition(" ")[2].split()
-            postquery.move_messages(118024, messageIds, 71097)
+            postquery.move_messages(PERSONAL_SANDBOX_ROOMID, messageIds, ROTATING_KNIVES_ROOMID)
         else:
             print("Sorry, didn't understand that command.")
 
     if message_queue is None:
         message_queue = Queue()
 
-    url = postquery.get_ws_url(roomid=118024)
+    url = postquery.get_ws_url(roomid=PERSONAL_SANDBOX_ROOMID)
     host = "chat.sockets.stackexchange.com"
 
     print("Establishing web socket...")
