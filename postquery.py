@@ -47,10 +47,15 @@ def get_ws_url(roomid):
     return url
 
 def query_messages_test(roomid):
+    s = "since=0&mode=Messages&msgCount=100&fkey=" + fkey
     x = requests.post(
         "http://chat.stackoverflow.com/chats/{}/events".format(roomid),
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        data = "since=0&mode=Messages&msgCount=10&fkey=" + fkey
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": str(len(s)),
+            "Cookie": cookie
+        },
+        data = s
     )
 
     if x.status_code != 200:
@@ -58,7 +63,10 @@ def query_messages_test(roomid):
 
     data = json.loads(x.content.decode("utf-8"))
     for event in data["events"]:
-        print("{}: {}".format(event["user_name"], event["content"]))
+        try:
+            print("{}: {}".format(event["user_name"], event["content"]))
+        except KeyError:
+            print("Whoops, not a message")
 
 def post_message_test(roomid, text):
     s = "text={}&fkey={}".format(html.escape(text), fkey)
@@ -76,8 +84,10 @@ def post_message_test(roomid, text):
     print(x.status_code, x.reason)
 
 def post_join_test(roomid):
+    query_messages_test(roomid)
+
     s = "fkey={}".format(fkey)
-    x = requests.post("https://chat.stackoverflow.com/chats/{}/join".format(roomid),
+    x = requests.post("http://chat.stackoverflow.com/chats/join/favorite",
             headers={
             "Content-Length": str(len(s)),
             "Content-Type": "application/x-www-form-urlencoded",
@@ -85,4 +95,17 @@ def post_join_test(roomid):
         },
         data=s
     )
-    print (x.status_code, x.reason)
+    print("Join test result: ", x.status_code, x.reason)
+    #print(x.content)
+
+def post_leave_test(roomid):
+    s = "fkey={}".format(fkey)
+    x = requests.post("http://chat.stackoverflow.com/chats/leave/{}".format(roomid),
+            headers={
+            "Content-Length": str(len(s)),
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cookie": cookie,
+        },
+        data=s
+    )
+    print("Leave test result: ", x.status_code, x.reason)
