@@ -109,3 +109,16 @@ def post_leave_test(roomid):
         data=s
     )
     print("Leave test result: ", x.status_code, x.reason)
+
+def post_cancel_stars(messageid):
+    url = "http://chat.stackoverflow.com/messages/{}/unstar".format(messageid)
+    s = s = "fkey={}".format(fkey)
+    x = requests.post(url,
+            headers={
+            "Content-Length": str(len(s)),
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cookie": cookie,
+        },
+        data=s
+    )
+    return x
