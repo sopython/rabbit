@@ -13,6 +13,7 @@ import json
 import html
 import time
 from pprint import pprint
+from queue import Queue
 
 event_type_names = [
     "placeholder because ids are 1-indexed",
@@ -66,29 +67,80 @@ class StackActivity(WebSocketClientProtocol):
                     content = html.unescape(event["content"])
                     print(abbreviate("{}: {}".format(event["user_name"], content), 119))
                     if event["user_name"] == "Kevin": #possible administrator command
+                        if content == "!shutdown":
+                            postquery.post_message_test(1, "bye")
+                            import sys; sys.exit(0)
                         if content == "!ping":
                             print("Detected a command. Replying...")
                             postquery.post_message_test(1, "pong")
-                        elif content == "!join":
-                            postquery.post_message_test(1, "Trying to join...")
-                            postquery.query_messages_test(6)
 
     def onClose(self, was_clean, code, reason):
           print('Closed:', reason)
           import sys; sys.exit(0)
 
-url = postquery.get_ws_url(roomid=1)
-host = "chat.sockets.stackexchange.com"
+def create_websocket(message_queue = None):
+    def onIdle(x=[]):
+        while not message_queue.empty():
+            onAdminMessage(message_queue.get())
+        loop.call_later(1, onIdle)
 
-print("Establishing web socket...")
+    def onAdminMessage(msg):
+        print("Got admin message: {}".format(msg))
+        if msg == "shutdown":
+            print("Shutting down...")
+            import sys; sys.exit(0)
+        elif msg == "join":
+            postquery.post_join_test(6)
+        elif msg.startswith("say"):
+            postquery.post_message_test(6, msg.partition(" ")[2])
+        elif msg.startswith("leave"):
+            roomid = msg.partition(" ")[2]
+            postquery.post_leave_test(roomid)
 
-factory = WebSocketClientFactory(url, headers={"Origin":"http://chat.stackoverflow.com"})
-factory.protocol = StackActivity
+    if message_queue is None:
+        message_queue = Queue()
 
-loop = asyncio.get_event_loop()
+    url = postquery.get_ws_url(roomid=1)
+    host = "chat.sockets.stackexchange.com"
 
-coro = loop.create_connection(factory, host, 80)
-loop.run_until_complete(coro)
-loop.run_forever()
-loop.close()
-print("Bye.")
+    print("Establishing web socket...")
+
+    factory = WebSocketClientFactory(url, headers={"Origin":"http://chat.stackoverflow.com"})
+    factory.protocol = StackActivity
+
+    loop = asyncio.get_event_loop()
+
+    loop.call_later(1, onIdle)
+
+    coro = loop.create_connection(factory, host, 80)
+    loop.run_until_complete(coro)
+    loop.run_forever()
+    loop.close()
+
+import threading
+
+def create_admin_window(message_queue):
+    from tkinter import Tk, Entry, Button
+
+    def clicked():
+        message_queue.put(box.get())
+
+    def on_closing():
+        message_queue.put("shutdown")
+        root.destroy()
+
+    root = Tk()
+    box = Entry(root)
+    box.pack()
+    button = Button(root, text="submit", command=clicked)
+    button.pack()
+
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+
+    root.mainloop()
+
+message_queue = Queue()
+t = threading.Thread(target=create_admin_window, args=(message_queue,))
+t.start()
+
+create_websocket(message_queue)
