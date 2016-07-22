@@ -66,12 +66,9 @@ class StackActivity(WebSocketClientProtocol):
                     content = html.unescape(event["content"])
                     print(abbreviate("{}: {}".format(event["user_name"], content), 119))
                     if event["user_name"] == "Kevin": #possible administrator command
-                        if content == "!shutdown":
-                            postquery.post_message_test(1, "bye")
-                            import sys; sys.exit(0)
                         if content == "!ping":
                             print("Detected a command. Replying...")
-                            postquery.post_message_test(1, "pong")
+                            postquery.send_message(1, "pong")
                 elif event_type in (3,4): #user entered/left
                     action = {3:"entered", 4:"left"}[event_type]
                     print("user {} {} room {}".format(repr(event["user_name"]), action, repr(event["room_name"])))
@@ -94,18 +91,18 @@ def create_websocket(message_queue = None):
             print("Shutting down...")
             import sys; sys.exit(0)
         elif msg == "join":
-            postquery.post_join_test(118024)
+            postquery.join(118024)
         elif msg.startswith("say"):
-            postquery.post_message_test(118024, msg.partition(" ")[2])
+            postquery.send_message(118024, msg.partition(" ")[2])
         elif msg.startswith("leave"):
             roomid = msg.partition(" ")[2]
-            postquery.post_leave_test(roomid)
+            postquery.leave(roomid)
         elif msg.startswith("cancel"):
             messageId = msg.partition(" ")[2]
-            postquery.post_cancel_stars(messageId)
+            postquery.cancel_stars(messageId)
         elif msg.startswith("move"):
             messageIds = msg.partition(" ")[2].split()
-            postquery.post_move_messages(118024, messageIds, 71097)
+            postquery.move_messages(118024, messageIds, 71097)
         else:
             print("Sorry, didn't understand that command.")
 

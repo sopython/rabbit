@@ -53,7 +53,7 @@ def get_ws_url(roomid):
     url = json.loads(x.text)["url"] + "?l=99999999"
     return url
 
-def query_messages_test(roomid):
+def query_messages(roomid):
     x = stackOverflowPost(
         "http://chat.stackoverflow.com/chats/{}/events".format(roomid),
         {"since": 0, "mode": "Messages", "Count": 100}
@@ -69,7 +69,7 @@ def query_messages_test(roomid):
         except KeyError:
             print("Whoops, not a message")
 
-def post_message_test(roomid, text):
+def send_message(roomid, text):
     x = stackOverflowPost(
         "https://chat.stackoverflow.com/chats/{}/messages/new".format(roomid),
         {"text": text}
@@ -77,7 +77,8 @@ def post_message_test(roomid, text):
 
     print(x.status_code, x.reason)
 
-def post_join_test(roomid):
+#not working yet
+def join(roomid):
     query_messages_test(roomid)
 
     s = "fkey={}".format(fkey)
@@ -85,19 +86,20 @@ def post_join_test(roomid):
     print("Join test result: ", x.status_code, x.reason)
     #print(x.content)
 
-def post_leave_test(roomid):
+#not working yet
+def leave(roomid):
     s = "fkey={}".format(fkey)
     x = stackOverflowPost("http://chat.stackoverflow.com/chats/leave/{}".format(roomid))
     print("Leave test result: ", x.status_code, x.reason)
 
-def post_cancel_stars(messageid):
+def cancel_stars(messageid):
     return stackOverflowPost("http://chat.stackoverflow.com/messages/{}/unstar".format(messageid))
 
-def post_move_messages(roomId, messageIds, targetRoomId):
+def move_messages(roomId, messageIds, targetRoomId):
     url = "http://chat.stackoverflow.com/admin/movePosts/{}".format(roomId)
     return stackOverflowPost(url, {"ids": ",".join(messageIds), "to": targetRoomId})
 
-def post_kick(roomId, userId):
+def kick(roomId, userId):
     return stackOverflowPost(
         "http://chat.stackoverflow.com/rooms/kickmute/{}".format(roomId),
         {"userId": userId}
