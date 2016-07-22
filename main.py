@@ -90,9 +90,9 @@ def create_websocket(message_queue = None):
             print("Shutting down...")
             import sys; sys.exit(0)
         elif msg == "join":
-            postquery.post_join_test(6)
+            postquery.post_join_test(118024)
         elif msg.startswith("say"):
-            postquery.post_message_test(6, msg.partition(" ")[2])
+            postquery.post_message_test(118024, msg.partition(" ")[2])
         elif msg.startswith("leave"):
             roomid = msg.partition(" ")[2]
             postquery.post_leave_test(roomid)
@@ -100,7 +100,7 @@ def create_websocket(message_queue = None):
     if message_queue is None:
         message_queue = Queue()
 
-    url = postquery.get_ws_url(roomid=1)
+    url = postquery.get_ws_url(roomid=118024)
     host = "chat.sockets.stackexchange.com"
 
     print("Establishing web socket...")
