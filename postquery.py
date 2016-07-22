@@ -27,19 +27,26 @@ def get_fkey_and_cookie(email, password):
 
 fkey, cookie = get_fkey_and_cookie(config.email, config.password)
 
-def get_ws_url(roomid):
-    s="roomid={}&fkey={}".format(roomid, fkey)
+def stackOverflowPost(url, params=None):
+    """
+    Send a POST message using some predetermined headers and params that are always necessary when talking to SO.
+    using this instead of requests.post will save you the effort of adding the fkey, cookie, etc yourself every time.
+    """
+    if params is None:
+        params = {}
+    params["fkey"] = fkey
+    print(params)
+    s = "&".join("{}={}".format(name, quote_plus(str(value))) for name, value in params.items())
     header={
-        "Content-Length": str(len(fkey)),
+        "Content-Length": str(len(s)),
         "Content-Type": "application/x-www-form-urlencoded",
         "Cookie": cookie
     }
+    return requests.post(url, headers=header, data=s)
 
-    x = requests.post(
-        "http://chat.stackoverflow.com/ws-auth", 
-        headers=header,
-        data=s
-    )
+def get_ws_url(roomid):
+    x = stackOverflowPost("http://chat.stackoverflow.com/ws-auth", {"roomid":roomid})
+
     if x.status_code != 200:
         raise Exception("Got status code {} {}".format(x.status_code, x.reason))
 
@@ -47,15 +54,9 @@ def get_ws_url(roomid):
     return url
 
 def query_messages_test(roomid):
-    s = "since=0&mode=Messages&msgCount=100&fkey=" + fkey
-    x = requests.post(
+    x = stackOverflowPost(
         "http://chat.stackoverflow.com/chats/{}/events".format(roomid),
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Content-Length": str(len(s)),
-            "Cookie": cookie
-        },
-        data = s
+        {"since": 0, "mode": "Messages", "Count": 100}
     )
 
     if x.status_code != 200:
@@ -69,16 +70,9 @@ def query_messages_test(roomid):
             print("Whoops, not a message")
 
 def post_message_test(roomid, text):
-    s = "text={}&fkey={}".format(quote_plus(text), fkey)
-
-    x = requests.post(
+    x = stackOverflowPost(
         "https://chat.stackoverflow.com/chats/{}/messages/new".format(roomid),
-        headers={
-            "Content-Length": str(len(s)),
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Cookie": cookie,
-        },
-        data=s
+        {"text": text}
     )
 
     print(x.status_code, x.reason)
@@ -87,38 +81,24 @@ def post_join_test(roomid):
     query_messages_test(roomid)
 
     s = "fkey={}".format(fkey)
-    x = requests.post("http://chat.stackoverflow.com/chats/join/favorite",
-            headers={
-            "Content-Length": str(len(s)),
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Cookie": cookie,
-        },
-        data=s
-    )
+    x = stackOverflowPost("http://chat.stackoverflow.com/chats/join/favorite")
     print("Join test result: ", x.status_code, x.reason)
     #print(x.content)
 
 def post_leave_test(roomid):
     s = "fkey={}".format(fkey)
-    x = requests.post("http://chat.stackoverflow.com/chats/leave/{}".format(roomid),
-            headers={
-            "Content-Length": str(len(s)),
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Cookie": cookie,
-        },
-        data=s
-    )
+    x = stackOverflowPost("http://chat.stackoverflow.com/chats/leave/{}".format(roomid))
     print("Leave test result: ", x.status_code, x.reason)
 
 def post_cancel_stars(messageid):
-    url = "http://chat.stackoverflow.com/messages/{}/unstar".format(messageid)
-    s = s = "fkey={}".format(fkey)
-    x = requests.post(url,
-            headers={
-            "Content-Length": str(len(s)),
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Cookie": cookie,
-        },
-        data=s
+    return stackOverflowPost("http://chat.stackoverflow.com/messages/{}/unstar".format(messageid))
+
+def post_move_messages(roomId, messageIds, targetRoomId):
+    url = "http://chat.stackoverflow.com/admin/movePosts/{}".format(roomId)
+    return stackOverflowPost(url, {"ids": ",".join(messageIds), "to": targetRoomId})
+
+def post_kick(roomId, userId):
+    return stackOverflowPost(
+        "http://chat.stackoverflow.com/rooms/kickmute/{}".format(roomId),
+        {"userId": userId}
     )
-    return x
