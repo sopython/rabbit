@@ -1,10 +1,10 @@
 import requests
 import json
-import html
 import sys
 import websockets
 import asyncio
 import config
+from urllib.parse import quote
 from bs4 import BeautifulSoup as BS
 
 
@@ -69,7 +69,7 @@ def query_messages_test(roomid):
             print("Whoops, not a message")
 
 def post_message_test(roomid, text):
-    s = "text={}&fkey={}".format(html.escape(text), fkey)
+    s = "text={}&fkey={}".format(quote(text), fkey)
 
     x = requests.post(
         "https://chat.stackoverflow.com/chats/{}/messages/new".format(roomid),
