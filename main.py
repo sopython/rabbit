@@ -100,6 +100,11 @@ def create_websocket(message_queue = None):
         elif msg.startswith("leave"):
             roomid = msg.partition(" ")[2]
             postquery.post_leave_test(roomid)
+        elif msg.startswith("cancel"):
+            messageId = msg.partition(" ")[2]
+            postquery.post_cancel_stars(messageId)
+        else:
+            print("Sorry, didn't understand that command.")
 
     if message_queue is None:
         message_queue = Queue()
