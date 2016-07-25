@@ -58,8 +58,6 @@ class Rabbit(StackOverflowChatSession):
             - "shutdown" - terminates this process
             - "cancel [message id]" - cancels the stars of a message, if bot has RO rights
             - "move [message id,message id,message id]" - moves one or more messages to the Rotating Knives room, if bot has RO rights
-            - "join [room number]" - joins a room (not actually working yet???)
-            - "leave [room number]" - leaves a room (not yet implemented properly)            
     """
     def __init__(self, email, password, admin_message_queue): 
         StackOverflowChatSession.__init__(self, email, password)
@@ -106,13 +104,8 @@ class Rabbit(StackOverflowChatSession):
         if msg == "shutdown":
             print("Shutting down...")
             import sys; sys.exit(0)
-        elif msg == "join":
-            self.join(PERSONAL_SANDBOX_ROOMID)
         elif msg.startswith("say"):
             self.send_message(PERSONAL_SANDBOX_ROOMID, msg.partition(" ")[2])
-        elif msg.startswith("leave"):
-            roomid = msg.partition(" ")[2]
-            self.leave(roomid)
         elif msg.startswith("cancel"):
             messageId = msg.partition(" ")[2]
             self.cancel_stars(messageId)
