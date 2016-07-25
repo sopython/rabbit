@@ -6,13 +6,11 @@ if sys.version_info < (3,0,0):
     sys.exit(0)
 
 import postquery
+import config
 
 import asyncio
-from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 import json
 import html
-import time
-from pprint import pprint
 from queue import Queue
 
 PERSONAL_SANDBOX_ROOMID = 118024
@@ -50,7 +48,26 @@ def abbreviate(msg, maxlen=25):
     if len(msg) < maxlen: return msg
     return msg[:maxlen-3] + "..."
 
-class StackActivity(WebSocketClientProtocol):
+class Rabbit(postquery.StackOverflowChatSession):
+    """
+        Simple example implementation of a StackOverflowChatSession.
+        Features:
+        - Prints information about each chat event that occurs
+        - Responds to commands sent in chat:
+            - "!ping" - replies with "pong"
+        - Responds to administrator commands sent to its message queue (i.e. typed into the Tkinter window on its local machine):
+            - "say [text]" - sends text to the room
+            - "shutdown" - terminates this process
+            - "cancel [message id]" - cancels the stars of a message, if bot has RO rights
+            - "move [message id,message id,message id]" - moves one or more messages to the Rotating Knives room, if bot has RO rights
+            - "join [room number]" - joins a room (not actually working yet???)
+            - "leave [room number]" - leaves a room (not yet implemented properly)            
+    """
+    def __init__(self, email, password, admin_message_queue):
+        #we'll use a queue to listen for commands sent to the bot locally.        
+        postquery.StackOverflowChatSession.__init__(self, email, password)
+        self.admin_message_queue = admin_message_queue
+        self.authorized_users = {"Kevin"}
 
     def onConnect(self, response):
         print('Connected:', response.peer)
@@ -58,7 +75,7 @@ class StackActivity(WebSocketClientProtocol):
     def onOpen(self):
         print("Opened.")
 
-    def onMessage(self, payload, is_binary):
+    def onMessage(self, payload):
         d = json.loads(payload.decode("utf-8"))
         for roomid, data in d.items():
             if "e" not in data: #some kind of keepalive message that we don't care about
@@ -68,10 +85,10 @@ class StackActivity(WebSocketClientProtocol):
                 if event_type == 1: #ordinary user message
                     content = html.unescape(event["content"])
                     print(abbreviate("{}: {}".format(event["user_name"], content), 119))
-                    if event["user_name"] == "Kevin": #possible administrator command
+                    if event["user_name"] in self.authorized_users: #possible administrator command
                         if content == "!ping":
                             print("Detected a command. Replying...")
-                            postquery.send_message(1, "pong")
+                            self.send_message(PERSONAL_SANDBOX_ROOMID, "pong")
                 elif event_type in (3,4): #user entered/left
                     action = {3:"entered", 4:"left"}[event_type]
                     print("user {} {} room {}".format(repr(event["user_name"]), action, repr(event["room_name"])))
@@ -82,55 +99,45 @@ class StackActivity(WebSocketClientProtocol):
           print('Closed:', reason)
           import sys; sys.exit(0)
 
-def create_websocket(message_queue = None):
-    def onIdle(x=[]):
-        while not message_queue.empty():
-            onAdminMessage(message_queue.get())
-        loop.call_later(1, onIdle)
+    def onIdle(self):
+        while not self.admin_message_queue.empty():
+            msg = self.admin_message_queue.get()
+            self.onAdminMessage(msg)
 
-    def onAdminMessage(msg):
+    def onAdminMessage(self, msg):
         print("Got admin message: {}".format(msg))
         if msg == "shutdown":
             print("Shutting down...")
             import sys; sys.exit(0)
         elif msg == "join":
-            postquery.join(PERSONAL_SANDBOX_ROOMID)
+            self.join(PERSONAL_SANDBOX_ROOMID)
         elif msg.startswith("say"):
-            postquery.send_message(PERSONAL_SANDBOX_ROOMID, msg.partition(" ")[2])
+            self.send_message(PERSONAL_SANDBOX_ROOMID, msg.partition(" ")[2])
         elif msg.startswith("leave"):
             roomid = msg.partition(" ")[2]
-            postquery.leave(roomid)
+            self.leave(roomid)
         elif msg.startswith("cancel"):
             messageId = msg.partition(" ")[2]
-            postquery.cancel_stars(messageId)
+            self.cancel_stars(messageId)
         elif msg.startswith("move"):
             messageIds = msg.partition(" ")[2].split()
-            postquery.move_messages(PERSONAL_SANDBOX_ROOMID, messageIds, ROTATING_KNIVES_ROOMID)
+            self.move_messages(PERSONAL_SANDBOX_ROOMID, messageIds, ROTATING_KNIVES_ROOMID)
         else:
             print("Sorry, didn't understand that command.")
 
-    if message_queue is None:
-        message_queue = Queue()
 
-    url = postquery.get_ws_url(roomid=PERSONAL_SANDBOX_ROOMID)
-    host = "chat.sockets.stackexchange.com"
+#connect to the SO chat server. This function never returns.
+def create_and_run_chat_session(admin_message_queue = None):
+    if admin_message_queue is None:
+        admin_message_queue = Queue()
 
-    print("Establishing web socket...")
-
-    factory = WebSocketClientFactory(url, headers={"Origin":"http://chat.stackoverflow.com"})
-    factory.protocol = StackActivity
-
-    loop = asyncio.get_event_loop()
-
-    loop.call_later(1, onIdle)
-
-    coro = loop.create_connection(factory, host, 80)
-    loop.run_until_complete(coro)
-    loop.run_forever()
-    loop.close()
+    session = Rabbit(config.email, config.password, admin_message_queue)
+    session.join_and_run_forever(PERSONAL_SANDBOX_ROOMID)
 
 import threading
 
+#create a GUI the user can use to send admin commands. This function never returns.
+#(hint: use threads if you want to run both this and `create_and_run_chat_session`)
 def create_admin_window(message_queue):
     from tkinter import Tk, Entry, Button
 
@@ -155,4 +162,4 @@ message_queue = Queue()
 t = threading.Thread(target=create_admin_window, args=(message_queue,))
 t.start()
 
-create_websocket(message_queue)
+create_and_run_chat_session(message_queue)
