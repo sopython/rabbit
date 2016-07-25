@@ -1,5 +1,3 @@
-# Requires Python 3.4 and a `pip install autobahn`
-
 import sys
 if sys.version_info < (3,0,0):
     print("Please run me in Python 3.")
