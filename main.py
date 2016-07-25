@@ -5,7 +5,7 @@ if sys.version_info < (3,0,0):
     print("Please run me in Python 3.")
     sys.exit(0)
 
-import postquery
+from stackoverflowchatsession import StackOverflowChatSession
 import config
 
 import asyncio
@@ -48,7 +48,7 @@ def abbreviate(msg, maxlen=25):
     if len(msg) < maxlen: return msg
     return msg[:maxlen-3] + "..."
 
-class Rabbit(postquery.StackOverflowChatSession):
+class Rabbit(StackOverflowChatSession):
     """
         Simple example implementation of a StackOverflowChatSession.
         Features:
@@ -63,9 +63,8 @@ class Rabbit(postquery.StackOverflowChatSession):
             - "join [room number]" - joins a room (not actually working yet???)
             - "leave [room number]" - leaves a room (not yet implemented properly)            
     """
-    def __init__(self, email, password, admin_message_queue):
-        #we'll use a queue to listen for commands sent to the bot locally.        
-        postquery.StackOverflowChatSession.__init__(self, email, password)
+    def __init__(self, email, password, admin_message_queue): 
+        StackOverflowChatSession.__init__(self, email, password)
         self.admin_message_queue = admin_message_queue
         self.authorized_users = {"Kevin"}
 
