@@ -10,6 +10,7 @@ import asyncio
 import json
 import html
 from queue import Queue
+from dbmodel import User, get_or_create_user, session
 
 PERSONAL_SANDBOX_ROOMID = 118024
 ROTATING_KNIVES_ROOMID = 71097
@@ -88,6 +89,11 @@ class Rabbit(StackOverflowChatSession):
                 elif event_type in (3,4): #user entered/left
                     action = {3:"entered", 4:"left"}[event_type]
                     print("user {} {} room {}".format(repr(event["user_name"]), action, repr(event["room_name"])))
+                elif event_type == 15: #account level changed
+                    if event["content"] == "priv 1815 created": #kicked
+                        user = get_or_create_user(event["user_id"])
+                        user.kick_count += 1
+                        session.commit()
                 else:
                     print(event_type_names[event_type])
 
