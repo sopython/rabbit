@@ -91,9 +91,14 @@ class Rabbit(StackOverflowChatSession):
                     print("user {} {} room {}".format(repr(event["user_name"]), action, repr(event["room_name"])))
                 elif event_type == 15: #account level changed
                     if event["content"] == "priv 1815 created": #kicked
+                        #record event.
                         user = get_or_create_user(event["user_id"])
                         user.kick_count += 1
                         session.commit()
+
+                        #now post a picture of a bunny.
+                        #todo: rotate through a wide assortment of bunny images.
+                        self.send_message(PERSONAL_SANDBOX_ROOMID, "http://i.imgur.com/6LqxbcH.jpg")
                 else:
                     print(event_type_names[event_type])
 
