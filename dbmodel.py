@@ -1,6 +1,9 @@
+import config
+
 import sqlalchemy
 from sqlalchemy import create_engine
 engine = create_engine(config.database_connection_string)
+
 from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
