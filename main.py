@@ -69,7 +69,7 @@ class Rabbit(StackOverflowChatSession):
     def __init__(self, email, password, admin_message_queue): 
         StackOverflowChatSession.__init__(self, email, password)
         self.admin_message_queue = admin_message_queue
-        self.authorized_users = {"Kevin"}
+        self.authorized_users = {"Kevin", "Terry"}
 
     def onConnect(self, response):
         print('Connected:', response.peer)
@@ -95,7 +95,7 @@ class Rabbit(StackOverflowChatSession):
                     action = {3:"entered", 4:"left"}[event_type]
                     print("user {} {} room {}".format(repr(event["user_name"]), action, repr(event["room_name"])))
                 elif event_type == 15: #account level changed
-                    if event["content"] == "priv 1815 created": #kicked
+                    if "created" in event["content"]: #kicked. (this may also catch other kinds of account level changed events, but they seem rare enough, and the side effects are innocuous enough, that I can debug them as I encounter them.
                         #record event.
                         user = get_or_create_user(event["user_id"])
                         user.kick_count += 1
@@ -104,6 +104,9 @@ class Rabbit(StackOverflowChatSession):
                         #now post a picture of a bunny.
                         #todo: rotate through a wide assortment of bunny images.
                         self.send_message(PRIMARY_ROOM_ID, "http://i.imgur.com/6LqxbcH.jpg")
+                    else:
+                        print("Info: Unknown event content {} in account level changed event.".format(repr(event["content"])))
+                        print(event)
                 else:
                     print(event_type_names[event_type])
 
