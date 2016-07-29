@@ -27,7 +27,7 @@ class StackOverflowChatSession:
         return self._get_webservice_url(roomid)
 
     def get_recent_events(self, roomid, count=100):
-        x = _post(
+        x = self._post(
             "http://chat.stackoverflow.com/chats/{}/events".format(roomid),
             {"since": 0, "mode": "Messages", "Count": count}
         )
