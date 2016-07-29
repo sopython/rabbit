@@ -57,6 +57,7 @@ class Rabbit(StackOverflowChatSession):
             - "say [text]" - sends text to the room
             - "shutdown" - terminates this process
             - "cancel [message id]" - cancels the stars of a message, if bot has RO rights
+            - "kick [user id]" - kicks the user, if bot has RO rights
             - "move [message id,message id,message id]" - moves one or more messages to the Rotating Knives room, if bot has RO rights
     """
     def __init__(self, email, password, admin_message_queue): 
@@ -109,6 +110,9 @@ class Rabbit(StackOverflowChatSession):
         elif msg.startswith("cancel"):
             messageId = msg.partition(" ")[2]
             self.cancel_stars(messageId)
+        elif msg.startswith("kick"):
+            userId = msg.partition(" ")[2]
+            self.kick(PERSONAL_SANDBOX_ROOMID, userId)
         elif msg.startswith("move"):
             messageIds = msg.partition(" ")[2].split()
             self.move_messages(PERSONAL_SANDBOX_ROOMID, messageIds, ROTATING_KNIVES_ROOMID)
