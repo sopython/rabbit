@@ -12,13 +12,13 @@ import html
 from queue import Queue
 from dbmodel import User, get_or_create_user, session
 
-PYTHON_ROOMID = 6
-PERSONAL_SANDBOX_ROOMID = 118024
-ROTATING_KNIVES_ROOMID = 71097
+PYTHON_ROOM_ID = 6
+PERSONAL_SANDBOX_ROOM_ID = 118024
+ROTATING_KNIVES_ROOM_ID = 71097
 
 #room that all of the bot's actions will occur in.
 #todo: make it possible for the bot to operate simultaneously in multiple rooms. The chat API supports this natively, I just didn't account for it in my design.
-PRIMARY_ROOMID = PYTHON_ROOMID
+PRIMARY_ROOM_ID = PYTHON_ROOM_ID
 
 event_type_names = [
     "placeholder because ids are 1-indexed",
@@ -79,7 +79,7 @@ class Rabbit(StackOverflowChatSession):
 
     def onMessage(self, payload):
         d = json.loads(payload.decode("utf-8"))
-        for roomid, data in d.items():
+        for ROOM_ID, data in d.items():
             if "e" not in data: #some kind of keepalive message that we don't care about
                 continue
             for event in data["e"]:
@@ -90,7 +90,7 @@ class Rabbit(StackOverflowChatSession):
                     if event["user_name"] in self.authorized_users: #possible administrator command
                         if content == "!ping":
                             print("Detected a command. Replying...")
-                            self.send_message(PRIMARY_ROOMID, "pong")
+                            self.send_message(PRIMARY_ROOM_ID, "pong")
                 elif event_type in (3,4): #user entered/left
                     action = {3:"entered", 4:"left"}[event_type]
                     print("user {} {} room {}".format(repr(event["user_name"]), action, repr(event["room_name"])))
@@ -103,7 +103,7 @@ class Rabbit(StackOverflowChatSession):
 
                         #now post a picture of a bunny.
                         #todo: rotate through a wide assortment of bunny images.
-                        self.send_message(PRIMARY_ROOMID, "http://i.imgur.com/6LqxbcH.jpg")
+                        self.send_message(PRIMARY_ROOM_ID, "http://i.imgur.com/6LqxbcH.jpg")
                 else:
                     print(event_type_names[event_type])
 
@@ -122,16 +122,16 @@ class Rabbit(StackOverflowChatSession):
             print("Shutting down...")
             import sys; sys.exit(0)
         elif msg.startswith("say"):
-            self.send_message(PRIMARY_ROOMID, msg.partition(" ")[2])
+            self.send_message(PRIMARY_ROOM_ID, msg.partition(" ")[2])
         elif msg.startswith("cancel"):
             messageId = msg.partition(" ")[2]
             self.cancel_stars(messageId)
         elif msg.startswith("kick"):
             userId = msg.partition(" ")[2]
-            self.kick(PRIMARY_ROOMID, userId)
+            self.kick(PRIMARY_ROOM_ID, userId)
         elif msg.startswith("move"):
             messageIds = msg.partition(" ")[2].split()
-            self.move_messages(PRIMARY_ROOMID, messageIds, ROTATING_KNIVES_ROOMID)
+            self.move_messages(PRIMARY_ROOM_ID, messageIds, ROTATING_KNIVES_ROOM_ID)
         else:
             print("Sorry, didn't understand that command.")
 
@@ -142,7 +142,7 @@ def create_and_run_chat_session(admin_message_queue = None):
         admin_message_queue = Queue()
 
     session = Rabbit(config.email, config.password, admin_message_queue)
-    session.join_and_run_forever(PRIMARY_ROOMID)
+    session.join_and_run_forever(PRIMARY_ROOM_ID)
 
 import threading
 
