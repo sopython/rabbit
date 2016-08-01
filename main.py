@@ -19,7 +19,7 @@ ROTATING_KNIVES_ROOM_ID = 71097
 
 #room that all of the bot's actions will occur in.
 #todo: make it possible for the bot to operate simultaneously in multiple rooms. The chat API supports this natively, I just didn't account for it in my design.
-PRIMARY_ROOM_ID = PYTHON_ROOM_ID
+PRIMARY_ROOM_ID = PERSONAL_SANDBOX_ROOM_ID
 
 event_type_names = [
     "placeholder because ids are 1-indexed",
@@ -70,7 +70,10 @@ class Rabbit(StackOverflowChatSession):
     def __init__(self, email, password, admin_message_queue): 
         StackOverflowChatSession.__init__(self, email, password)
         self.admin_message_queue = admin_message_queue
-        self.authorized_users = {"Kevin", "Terry"}
+        self.authorized_users = {
+            953482, #Kevin
+            6621329 #Terry
+        }
 
     def onConnect(self, response):
         print('Connected:', response.peer)
@@ -88,7 +91,8 @@ class Rabbit(StackOverflowChatSession):
                 if event_type == 1: #ordinary user message
                     content = html.unescape(event["content"])
                     print(abbreviate("{}: {}".format(event["user_name"], content), 119))
-                    if event["user_name"] in self.authorized_users: #possible administrator command
+                    print(repr(event["user_id"]))
+                    if event["user_id"] in self.authorized_users: #possible administrator command
                         if content == "!ping":
                             print("Detected a command. Replying...")
                             self.send_message(PRIMARY_ROOM_ID, "pong")
