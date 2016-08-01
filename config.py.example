@@ -1,0 +1,7 @@
+#this is an example implementation of the file `config.py`, which is itself not present in the repository because it contains private password data.
+
+#credentials for the user account which the bot uses.
+email = "example@example.com"
+password = "hunter2"
+
+database_connection_string = "sqlite:///test.db"
