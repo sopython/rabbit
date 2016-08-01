@@ -9,6 +9,7 @@ import config
 import asyncio
 import json
 import html
+import random
 from queue import Queue
 from dbmodel import User, get_or_create_user, session
 
@@ -102,8 +103,8 @@ class Rabbit(StackOverflowChatSession):
                         session.commit()
 
                         #now post a picture of a bunny.
-                        #todo: rotate through a wide assortment of bunny images.
-                        self.send_message(PRIMARY_ROOM_ID, "http://i.imgur.com/6LqxbcH.jpg")
+                        bunny_url = random.choice(config.kick_reply_images)
+                        self.send_message(PRIMARY_ROOM_ID, bunny_url)
                     else:
                         print("Info: Unknown event content {} in account level changed event.".format(repr(event["content"])))
                         print(event)

@@ -5,3 +5,11 @@ email = "example@example.com"
 password = "hunter2"
 
 database_connection_string = "sqlite:///test.db"
+
+kick_reply_images = [
+    "http://i.imgur.com/6LqxbcH.jpg",
+    "http://i.imgur.com/kw9y8.jpg",
+    "http://i.imgur.com/670Cq.jpg",
+    "http://i.imgur.com/NbGiSmd.jpg",
+    "http://i.imgur.com/2ZYlX.jpg",
+]
