@@ -88,6 +88,8 @@ class Rabbit(StackOverflowChatSession):
                 continue
             for event in data["e"]:
                 event_type = event["event_type"]
+                if event_type >= len(event_type_names):
+                    raise Exception("Unrecognized event type: {} \nWith event data:".format(event_type, event))
                 if event_type == 1: #ordinary user message
                     content = html.unescape(event["content"])
                     print(abbreviate("{}: {}".format(event["user_name"], content), 119))
