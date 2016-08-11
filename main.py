@@ -11,7 +11,7 @@ import json
 import html
 import random
 from queue import Queue
-from dbmodel import User, get_or_create_user, session
+from dbmodel import User, db_session
 
 PYTHON_ROOM_ID = 6
 PERSONAL_SANDBOX_ROOM_ID = 118024
@@ -103,9 +103,9 @@ class Rabbit(StackOverflowChatSession):
                 elif event_type == 15: #account level changed
                     if "created" in event["content"]: #kicked. (this may also catch other kinds of account level changed events, but they seem rare enough, and the side effects are innocuous enough, that I can debug them as I encounter them.
                         #record event.
-                        user = get_or_create_user(event["user_id"])
+                        user = User.get_or_create(db_session, event["user_id"])
                         user.kick_count += 1
-                        session.commit()
+                        db_session.commit()
 
                         #now post a picture of a bunny.
                         bunny_url = random.choice(config.kick_reply_images)

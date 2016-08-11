@@ -1,38 +1,99 @@
 import config
-
-import sqlalchemy
+from datetime import datetime, timedelta
+import requests
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy import create_engine
-engine = create_engine(config.database_connection_string)
-
+from sqlalchemy import ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm.util import has_identity
+
 Base = declarative_base()
 
-from sqlalchemy import Column, Integer, String, Boolean
 class User(Base):
     __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, unique=True, index=True)
+    display_name = Column(String, default='')
+    reputation = Column(Integer)
+    profile_image = Column(String)
 
-    surrogate_id = Column(Integer, primary_key=True)
-    so_user_id = Column(Integer, index=True, unique=True)
     is_banned = Column(Boolean)
     kick_count = Column(Integer)
     trash_count = Column(Integer)
     flag_count = Column(Integer)
-    notes = Column(String)
 
-    def __repr__(self):
-        names = "id is_banned kick_count trash_count flag_count notes".split()
-        return "<User(so_user_id={}, is_banned={}, kick_count={}, trash_count={}, flag_count={}, notes={})>".format(self.so_user_id, self.is_banned, self.kick_count, self.trash_count, self.flag_count, self.notes)
+    gold_tag_badges = Column(String, default='')
+    user_type = Column(String)
+    created = Column(DateTime, default=datetime.utcnow)
+    updated = Column(DateTime, default=datetime.utcnow)
+    notes = relationship('Annotation', foreign_keys='Annotation.user_id')
+    messages = relationship('Message', foreign_keys='Message.user_id')
+    permissions = relationship('Permission')
 
-Base.metadata.create_all(engine)
+    def update_from_SE(self, force=False, cache=timedelta(86400)):
+        if (
+            has_identity(self) and self.user_id and not force
+            and (datetime.utcnow() - self.updated) < cache
+        ):
+            return self
 
-def get_or_create_user(so_user_id):
-    user = session.query(User).filter(User.so_user_id == so_user_id).one_or_none()
-    if user is None:
-        return User(so_user_id=so_user_id, is_banned=False, kick_count=0, trash_count=0, flag_count=0, notes="")
-    else:
+        user = requests.get(
+            'http://api.stackexchange.com/2.2/users/{}'.format(self.user_id),
+            {'site': 'stackoverflow'}
+        ).json()['items'][0]
+
+        self.display_name = user['display_name']
+        self.reputation = user['reputation']
+        self.profile_image = user['profile_image']
+        self.user_type = user['user_type']
+
+        gold_badges = requests.get(
+            'http://api.stackexchange.com/2.2/users/{}/badges'.format(self.user_id),
+            {'site': 'stackoverflow', 'max': 'gold', 'sort': 'rank'}
+        ).json()
+
+        self.gold_tag_badges = ' '.join(
+            badge['name'] for badge in gold_badges['items']
+            if badge['badge_type'] == 'tag_based'
+        )
+
+        self.updated = datetime.utcnow()
+
+    @classmethod
+    def get_or_create(cls, session, user_id, force=False):
+        qry = session.query(cls).filter_by(user_id=user_id)
+        user = qry.first() or cls(user_id=user_id)
+        user.update_from_SE(force)
         return user
 
+class Message(Base):
+    __tablename__ = 'messages'
+    id = Column(Integer, primary_key=True)
+    event_type = Column(Integer)
+    room_id = Column(Integer)
+    user_id = Column(ForeignKey('users.user_id'))
+    reply_to = Column(ForeignKey('users.user_id'))
+    text = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
-from sqlalchemy.orm import sessionmaker
-Session = sessionmaker(bind=engine)
-session = Session()
+class Permission(Base):
+    __tablename__ = 'users_permissions'
+    id = Column(Integer, primary_key=True)
+    user = Column(ForeignKey('users.id'))
+    permission = Column(String(30))
+    type = Column(Boolean, default=True)
+
+
+class Annotation(Base):
+    __tablename__ = 'users_annotations'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(ForeignKey('users.id'), nullable=False)
+    author_id = Column(ForeignKey('users.id'))
+    created = Column(DateTime, default=datetime.utcnow)
+    type = Column(String)
+    text = Column(Text, nullable=False)
+
+engine = create_engine(config.database_connection_string)
+Base.metadata.create_all(engine)
+db_session = sessionmaker(engine)()
