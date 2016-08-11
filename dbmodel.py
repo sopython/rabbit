@@ -64,11 +64,13 @@ class User(Base):
     def get_or_create(cls, session, user_id, force=False):
         qry = session.query(cls).filter_by(user_id=user_id)
         user = qry.first()
-        if not user:
+        if user:
+            user.update_from_SE(force)
+        else:
             user = cls(user_id=user_id)
+            user.update_from_SE(True)
             session.add(user)
             session.commit() #not sure if this is a great idea, but it seems to be necessary in order for the default values to populate themselves properly
-        user.update_from_SE(force)
         return user
 
 class Message(Base):
