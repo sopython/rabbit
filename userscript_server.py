@@ -15,13 +15,13 @@ def dummy_queue_populator():
     while True:
         master_message_queue.put(time.time())
         time.sleep(5)
-#thread = threading.Thread(target=dummy_queue_populator)
-#thread.daemon = True
-#thread.start()
+thread = threading.Thread(target=dummy_queue_populator)
+thread.daemon = True
+thread.start()
 
 #queues that each populate themselves using items from the master message queue. Each websocket connection gets one of these, and can consume them as they see fit.
 listener_queues = []
-listener_queue_lock = threading.Lock()
+listener_queue_lock = threading.Lock() #not sure if this is actually necessary?
 def listener_queue_populator():
     while True:
         item = master_message_queue.get()
@@ -51,6 +51,8 @@ async def handler(websocket, path):
     with listener_queue_lock:
         listener_queues.append(my_queue)
     async def producer():
+        while my_queue.empty():
+            await asyncio.sleep(0.1)
         return my_queue.get()
 
     print("Connection opened.")
@@ -86,9 +88,28 @@ async def handler(websocket, path):
     #set of user ids that the client is interested in getting updates for.
     interests = set()
 
+    # while True:
+        # message = await websocket.recv()
+        # await handle_user_request(websocket, message)
+
+    listener_task = asyncio.ensure_future(websocket.recv())
+    producer_task = asyncio.ensure_future(producer())
     while True:
-        message = await websocket.recv()
-        await handle_user_request(websocket, message)
+        done, pending = await asyncio.wait(
+            [listener_task, producer_task],
+            return_when=asyncio.FIRST_COMPLETED)
+
+        if listener_task in done:
+            print("Got message from client.")
+            message = listener_task.result()
+            await handle_user_request(websocket, message)
+            listener_task = asyncio.ensure_future(websocket.recv())
+
+        if producer_task in done:
+            print("Got message from producer queue.")
+            message = producer_task.result()
+            print(message)
+            producer_task = asyncio.ensure_future(producer())
 
 start_server = websockets.serve(handler, 'localhost', 8000)
 
