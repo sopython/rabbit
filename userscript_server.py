@@ -48,6 +48,7 @@ class UserScriptConnection:
         print(repr(message))
         d = json.loads(message)
         if d["event_type"] == "register_interest":
+            print("register_interest. Adding...")
             self.interests.add(d["user_id"])
         elif d["event_type"] == "create_annotation":
             print("create_annotation. Echoing...")
@@ -60,7 +61,8 @@ class UserScriptConnection:
         print(repr(message))
         if isinstance(message, dict):
             if message["event_type"] == "create_annotation":
-                await self.websocket.send(json.dumps(message))
+                if message["user_id"] in self.interests:
+                    await self.websocket.send(json.dumps(message))
             else:
                 print("Unrecognized event type {}".format(message["event_type"]))
         else:

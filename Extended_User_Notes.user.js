@@ -185,7 +185,10 @@ function updatePopup(box){
             userInfoBox.element.hidden = true;
             document.body.appendChild(userInfoBox.element);
 
-            //todo: send registration message to websocket.
+            ws.send(JSON.stringify({
+                "event_type": "register_interest",
+                "user_id": user_id
+            }));
 
             userInfoBox.bindOnSubmit(function(text){
                 console.log("Sending annotation to server...");
