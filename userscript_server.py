@@ -45,6 +45,41 @@ async def handle_user_request(websocket, message):
         await websocket.send(json.dumps(d))
         print("echoed.")
 
+async def negotiate_connection(websocket):
+    """
+    verifies that the client we're talking to has proper credentials and is using the appropriate protocols.
+    returns True if handshake succeeds, False otherwise.
+    """
+
+    #first message sent by the client should be a handshake with a dict containing their user id and token and protocol version.
+    response = await websocket.recv()
+    print("parsing handshake...")
+    try:
+        handshake = json.loads(response)
+    except json.decoder.JSONDecodeError:
+        print("Could not parse handshake: {}".format(repr(handshake)))
+        await websocket.send(json.dumps({"event_type": "dropped", "reason": "message was not recognizable JSON"}))
+        return False
+    print("parsed.")
+
+    print("validating handshake...")
+    for key in ("protocol_version", "user_id", "token"):
+        if key not in handshake:
+            print("key {} not present.".format(repr(key)))
+            await websocket.send(json.dumps({"event_type": "dropped", "reason": "handshake missing parameter {}".format(repr(key))}))
+            return False
+    if int(handshake["protocol_version"]) < CURRENT_PROTOCOL_VERSION:
+        await websocket.send(json.dumps({"event_type": "dropped", "reason": "outdated protocol version"}))
+        return False
+    if handshake["token"] != "deadbeef": #todo: fetch actual token from db
+        await websocket.send(json.dumps({"event_type": "dropped", "reason": "invalid token"}))
+        return False
+
+    await websocket.send(json.dumps({"event_type": "validated"}))
+    print("Validated. Awaiting client requests.")
+
+    #handshake validated. Stream is now open for client requests and server responses.
+    return True
 
 async def handler(websocket, path):
     my_queue = queue.Queue()
@@ -56,41 +91,12 @@ async def handler(websocket, path):
         return my_queue.get()
 
     print("Connection opened.")
-
-    #first message sent by the client should be a handshake with a dict containing their user id and token and protocol version.
-    response = await websocket.recv()
-    print("parsing handshake...")
-    try:
-        handshake = json.loads(response)
-    except json.decoder.JSONDecodeError:
-        print("Could not parse handshake: {}".format(repr(handshake)))
-        await websocket.send(json.dumps({"event_type": "dropped", "reason": "handshake missing parameter {}".format(repr(key))}))
+    handshake_verified = await negotiate_connection(websocket)
+    if not handshake_verified:
         return
-    print("parsed.")
-
-    print("validating handshake...")
-    for key in ("protocol_version", "user_id", "token"):
-        if key not in handshake:
-            print("key {} not present.".format(repr(key)))
-            await websocket.send(json.dumps({"event_type": "dropped", "reason": "handshake missing parameter {}".format(repr(key))}))
-            return
-    if int(handshake["protocol_version"]) < CURRENT_PROTOCOL_VERSION:
-        await websocket.send(json.dumps({"event_type": "dropped", "reason": "outdated protocol version"}))
-        return
-    if handshake["token"] != "deadbeef": #todo: fetch actual token from db
-        await websocket.send(json.dumps({"event_type": "dropped", "reason": "invalid token"}))
-        return
-
-    await websocket.send(json.dumps({"event_type": "validated"}))
-    print("Validated. Awaiting client requests.")
-    #handshake validated. Stream is now open for client requests and server responses.
 
     #set of user ids that the client is interested in getting updates for.
     interests = set()
-
-    # while True:
-        # message = await websocket.recv()
-        # await handle_user_request(websocket, message)
 
     listener_task = asyncio.ensure_future(websocket.recv())
     producer_task = asyncio.ensure_future(producer())
