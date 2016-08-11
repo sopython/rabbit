@@ -24,9 +24,7 @@ Register Interest - sent when the client wants to receive periodic updates about
 Create Annotation - sent when the client adds a note to a user's rap sheet.
     event_type: "create_annotation"
     user_id: Integer. The id number of the user being annotated.
-    created: float. The unix timestamp of submission, in seconds.
     text: String. The contents of the annotation.
-    author_name: String. The user's Stack Overflow username.
 
 --- Server Messages ---
 Once validated, the server can send messages to the client.
