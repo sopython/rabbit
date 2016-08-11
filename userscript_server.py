@@ -50,6 +50,7 @@ class UserScriptConnection:
         if d["event_type"] == "register_interest":
             print("register_interest. Adding...")
             self.interests.add(d["user_id"])
+            #todo: fetch information about user from the database and send it to the client.
         elif d["event_type"] == "create_annotation":
             print("create_annotation. Echoing...")
             #todo: insert data from d into database.
