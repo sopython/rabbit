@@ -4,7 +4,7 @@ User script communication protocol V1
 
 After connecting, the client must send a handshake message to the server. It should be a string containing valid JSON dict with the following values:
     protocol_version: Integer. The version number of the protocol the client is using.
-    user_id: String. The id number of the user's Stack Overflow account.
+    user_id: Integer. The id number of the user's Stack Overflow account.
     token: String. A unique secret value that the user recieved from SOPython when he signed up for the user script.
 
 The client will then respond with a message indicating whether the handshake succeeded. A success looks like:
@@ -19,23 +19,29 @@ Once validated, the client can send requests to the server.
 
 Register Interest - sent when the client wants to receive periodic updates about a particular user. This is typically sent the first time the user clicks the "rap sheet" button.
     event_type: "register_interest"
-    user_id: String. The id number of the user the client is interested in.
+    user_id: Integer. The id number of the user the client is interested in.
 
 Create Annotation - sent when the client adds a note to a user's rap sheet.
     event_type: "create_annotation"
-    user_id: String. The id number of the user being annotated.
-    date: String. The date of submission, in "MM/DD/YYYY" format.
-    time: String. The time of submission, in "HH:MM (AM|PM)" format.
+    user_id: Integer. The id number of the user being annotated.
+    created: float. The unix timestamp of submission, in seconds.
     text: String. The contents of the annotation.
     author_name: String. The user's Stack Overflow username.
 
 --- Server Messages ---
 Once validated, the server can send messages to the client.
 
-Create Annotation - sent when any user (including this user) creates an annotation on a user that this user is interested in. Format is the same as the Create Annotation client request.
+Create Annotation - sent when any user (including this user) creates an annotation on a user that this user is interested in. Note: requires more paramters than the client version of this message.
+    event_type: "create_annotation"
+    user_id: Integer. The id number of the user being annotated.
+    created: float. The unix timestamp of submission, in seconds.
+    text: String. The contents of the annotation.
+    author_name: String. The user's Stack Overflow username.
+
 
 User Info - Sent in response to a "register interest" message, and sent when information about the user changes, such as number of times kicked.
     event_type: "update_user_info"
+    user_id: Integer. The id number of the user being updated.
     updates: list. Contains one or more dictionaries with the following format:
         update_type: String. Can be one of "kicks", "flags", "name", or "avatar".
         value: String. Contents vary by update type:

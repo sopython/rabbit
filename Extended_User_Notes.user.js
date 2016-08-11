@@ -88,13 +88,17 @@ function getOneElementByClassName(node, className){
     }
 }
 
-var UserInfoBox = function(userName, avatar_url){
+function removeChildNodes(node){
+    while(node.childNodes.length > 0){
+        node.removeChild(node.childNodes[0]);
+    }
+}
+
+var UserInfoBox = function(username, avatar_url){
     this.element = document.createElement("span");
     this.element.innerHTML = UserInfoBoxTemplate;
     this.submitButtonListeners = [];
-    
-    getOneElementByClassName(this.element, "avatar").src = avatar_url;
-    getOneElementByClassName(this.element, "name").innerHTML = escapeHtml(userName);
+    this.hasEverBeenUpdatedByServer = false;
 
     self = this; // so we can access it inside these callbacks
 
@@ -112,6 +116,43 @@ var UserInfoBox = function(userName, avatar_url){
     }
 
     this.bindOnSubmit(function(value){console.log(value);});
+
+    this.names = [username]; //all names the user had, in order from least recent to most recent
+    this.avatars = [avatar_url]; //all avatars the user had, in order from least recent to most recent.
+    this.updateNameAndAvatarElements();
+
+}
+
+//update the html elements representing the user's name and avatar (both current and previous)
+UserInfoBox.prototype.updateNameAndAvatarElements = function(){
+    currentUsername = this.names[this.names.length-1];
+    currentAvatar = this.avatars[this.avatars.length-1];
+    previousUsernames = this.names.slice(0, this.names.length-1);
+    previousAvatars = this.avatars.slice(0, this.avatars.length-1);
+
+    //update current name/avatar
+    getOneElementByClassName(this.element, "name").innerHTML = escapeHtml(currentUsername);
+    getOneElementByClassName(this.element, "avatar").src = currentAvatar;
+
+    previous_names_list = getOneElementByClassName(this.element, "previous_names_list")
+    previous_avatars_list = getOneElementByClassName(this.element, "previous_avatars_list")
+    //clear out previous name/avatar entries
+    removeChildNodes(previous_names_list);
+    removeChildNodes(previous_avatars_list);
+    
+    //update "no previous (username | avatar)" message
+    getOneElementByClassName(this.element, "no_previous_names_message").hidden = (previousUsernames.length > 0);
+    getOneElementByClassName(this.element, "no_previous_avatars_message").hidden = (previousAvatars.length > 0);
+
+    //update previous username/avatar lists
+    for(var i = 0; i < previousUsernames.length; i+=1){
+        this.addPreviousName(previousUsernames[i]);
+    }
+    for(var i = 0; i < previousAvatars.length; i+=1){
+        this.addPreviousAvatar(previousAvatars[i]);
+    }
+    //todo: make sure that these are being inserted in chronological order. Might be backwards right now.
+
 }
 
 UserInfoBox.prototype.addPreviousName = function(name){
@@ -147,6 +188,40 @@ UserInfoBox.prototype.bindOnSubmit = function(callback){
     this.submitButtonListeners.push(callback);
 }
 
+UserInfoBox.prototype.updateWithServerData = function(d){
+    updates = d["updates"];
+    if (!this.hasEverBeenUpdatedByServer){
+        //now that we're getting "official" name/avatar data from the server,
+        //we can clear out the placeholder values we were using.
+        this.names = [];
+        this.avatars = [];
+    }
+    shouldRefreshNameOrAvatarList = false;
+    for (var i = 0; i < updates.length; i+=1){
+        update = updates[i];
+        if (update["update_type"] == "kicks"){
+            this.setKickCount(update["value"]);
+        }
+        else if (update["update_type"] == "flags"){
+            this.setFlagCount(update["value"]);
+        }
+        else if (update["update_type"] == "name"){
+            this.names.push(update["value"]);
+            shouldRefreshNameOrAvatarList = true;
+        }
+        else if (update["update_type"] == "avatar"){
+            this.avatars.push(update["value"]);
+            shouldRefreshNameOrAvatarList = true;
+        }
+    }
+
+    if (shouldRefreshNameOrAvatarList){
+        this.updateNameAndAvatarElements();
+    }
+
+    this.hasEverBeenUpdatedByServer = true;
+}
+
 var Annotation = function(name, text, date, time){
     this.element = document.createElement("span");
     this.element.innerHTML = annotationTemplate;
@@ -162,7 +237,7 @@ function updatePopup(box){
     //at this point, we know the standard user popup is open, and it doesn't yet have an extended notes link yet.
     var links = box.getElementsByTagName("A");
     if(links.length == 0){ throw "Expected at least one link in user box, got 0"; }
-    var user_id = links[0].href.split("/")[4];
+    var user_id = parseInt(links[0].href.split("/")[4]);
 
     var user_name = box.getElementsByClassName("username")[0].innerHTML;
     var avatar_url = box.getElementsByTagName("IMG")[0].src;
@@ -195,10 +270,7 @@ function updatePopup(box){
                 ws.send(JSON.stringify({
                     "event_type": "create_annotation",
                     "user_id": user_id,
-                    "date": "8/5/2016",
-                    "time": "1:48 PM",
                     "text": text,
-                    "author_name": "Kevin"
                 }));
                 console.log("sent.");
             });
@@ -228,7 +300,7 @@ try{
         console.log("Connected. Sending handshake...");
         handshake = JSON.stringify({
             "protocol_version": "1",
-            "user_id": "0",
+            "user_id": 0,
             "token": "deadbeef"
         })
         console.log(handshake);
@@ -250,6 +322,10 @@ try{
                 d["date"],
                 d["time"]
             ));
+        }
+        else if (d["event_type"] == "update_user_info"){
+            console.log("updating user info for user with id " + d["user_id"]);
+            popups[d["user_id"]].updateWithServerData(d);
         }
         }catch(e){console.log(e);}
     }

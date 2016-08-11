@@ -4,8 +4,11 @@ import websockets
 import queue
 import threading
 import time
+import datetime
 
 import json
+
+import dbmodel
 
 CURRENT_PROTOCOL_VERSION = 1
 
@@ -15,9 +18,9 @@ def dummy_queue_populator():
     while True:
         master_message_queue.put(time.time())
         time.sleep(5)
-thread = threading.Thread(target=dummy_queue_populator)
-thread.daemon = True
-thread.start()
+#thread = threading.Thread(target=dummy_queue_populator)
+#thread.daemon = True
+#thread.start()
 
 #queues that each populate themselves using items from the master message queue. Each websocket connection gets one of these, and can consume them as they see fit.
 listener_queues = []
@@ -37,11 +40,50 @@ class UserScriptConnection:
         self.websocket = websocket
         self.interests = set()
         self.queue = queue.Queue()
+        self.user_id = 0 #todo: pull this from the db
+        self.display_name = "Amanda Hugginkiss" #todo: pull this from the db
+
+    def create_annotation_message(self, annotation):
+        return {
+            "event_type": "create_annotation",
+            "user_id": annotation.user_id,
+            "created": annotation.created.timestamp(),
+            "text": annotation.text,
+            "author_name": self.display_name
+        }
 
     async def producer(self):
         while self.queue.empty():
             await asyncio.sleep(0.1)
-        return self.queue.get()
+        return self.queue.get()        
+
+    async def send_initial_user_info(self, user_id):
+        #fetch relevant information about user and send it to client.
+        user = dbmodel.User.get_or_create(dbmodel.db_session, user_id)
+
+        user_info_response = {
+            "event_type": "update_user_info",
+            "user_id": user_id,
+            "updates": [
+                {"update_type": "kicks", "value": user.kick_count},
+                {"update_type": "flags", "value": user.flag_count}
+            ]
+        }
+
+        #todo: check database for previous names.
+        #for now we'll test functionality with some fake names.
+        for name in ("Chicago Ted", "I.C. Weiner", user.display_name):
+            user_info_response["updates"].append({"update_type": "name", "value": name})
+
+        #todo: check database for previous avatars.
+        user_info_response["updates"].append({"update_type": "avatar", "value": user.profile_image})
+
+        print("Sending response: {}".format(user_info_response))
+        await self.websocket.send(json.dumps(user_info_response))
+
+        annotations = dbmodel.db_session.query(dbmodel.Annotation).filter_by(user_id=user_id).all() #todo: is an "order by" needed here?
+        for annotation in annotations:
+            await self.websocket.send(json.dumps(self.create_annotation_message(annotation)))
 
     async def handle_user_request(self, message):
         print("Got message from client.")
@@ -50,20 +92,33 @@ class UserScriptConnection:
         if d["event_type"] == "register_interest":
             print("register_interest. Adding...")
             self.interests.add(d["user_id"])
-            #todo: fetch information about user from the database and send it to the client.
+            await self.send_initial_user_info(d["user_id"])
+
         elif d["event_type"] == "create_annotation":
-            print("create_annotation. Echoing...")
-            #todo: insert data from d into database.
-            #for now, let's just echo the data back into the master queue.
-            master_message_queue.put(d)
+            print("create_annotation. Adding to db...")
+            annotation = dbmodel.Annotation(
+                user_id = d["user_id"],
+                author_id = self.user_id,
+                created = datetime.datetime.now(),
+                type = "comment",
+                text= d["text"]
+            )
+            dbmodel.db_session.add(annotation)
+            dbmodel.db_session.commit()
+            print("Added.")
+            master_message_queue.put(self.create_annotation_message(annotation))
 
     async def handle_queue_message(self, message):
         print("Got message from producer queue.")
         print(repr(message))
         if isinstance(message, dict):
             if message["event_type"] == "create_annotation":
+                print("Create annotation.")
                 if message["user_id"] in self.interests:
+                    print("Sending to user.")
                     await self.websocket.send(json.dumps(message))
+                else:
+                    print("User not interested.")
             else:
                 print("Unrecognized event type {}".format(message["event_type"]))
         else:

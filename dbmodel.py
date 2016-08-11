@@ -18,10 +18,10 @@ class User(Base):
     reputation = Column(Integer)
     profile_image = Column(String)
 
-    is_banned = Column(Boolean)
-    kick_count = Column(Integer)
-    trash_count = Column(Integer)
-    flag_count = Column(Integer)
+    is_banned = Column(Boolean, default=False)
+    kick_count = Column(Integer, default=0)
+    trash_count = Column(Integer, default=0)
+    flag_count = Column(Integer, default=0)
 
     gold_tag_badges = Column(String, default='')
     user_type = Column(String)
@@ -63,7 +63,11 @@ class User(Base):
     @classmethod
     def get_or_create(cls, session, user_id, force=False):
         qry = session.query(cls).filter_by(user_id=user_id)
-        user = qry.first() or cls(user_id=user_id)
+        user = qry.first()
+        if not user:
+            user = cls(user_id=user_id)
+            session.add(user)
+            session.commit() #not sure if this is a great idea, but it seems to be necessary in order for the default values to populate themselves properly
         user.update_from_SE(force)
         return user
 
