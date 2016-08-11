@@ -32,6 +32,20 @@ thread = threading.Thread(target=listener_queue_populator)
 thread.daemon = True
 thread.start()
 
+async def handle_user_request(websocket, message):
+    print("Got message from client.")
+    print(repr(message))
+    d = json.loads(message)
+    if d["event_type"] == "register_interest":
+        interests.add(d["user_id"])
+    elif d["event_type"] == "create_annotation":
+        print("create_annotation. Echoing...")
+        #todo: insert data from d into database.
+        #for now, let's just echo the data back to the user.
+        await websocket.send(json.dumps(d))
+        print("echoed.")
+
+
 async def handler(websocket, path):
     my_queue = queue.Queue()
     with listener_queue_lock:
@@ -74,17 +88,7 @@ async def handler(websocket, path):
 
     while True:
         message = await websocket.recv()
-        print("Got message from client.")
-        print(repr(message))
-        d = json.loads(message)
-        if d["event_type"] == "register_interest":
-            interests.add(d["user_id"])
-        elif d["event_type"] == "create_annotation":
-            print("create_annotation. Echoing...")
-            #todo: insert data from d into database.
-            #for now, let's just echo the data back to the user.
-            await websocket.send(json.dumps(d))
-            print("echoed.")
+        await handle_user_request(websocket, message)
 
 start_server = websockets.serve(handler, 'localhost', 8000)
 
