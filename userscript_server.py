@@ -32,90 +32,100 @@ thread = threading.Thread(target=listener_queue_populator)
 thread.daemon = True
 thread.start()
 
-async def handle_user_request(websocket, message):
-    print("Got message from client.")
-    print(repr(message))
-    d = json.loads(message)
-    if d["event_type"] == "register_interest":
-        interests.add(d["user_id"])
-    elif d["event_type"] == "create_annotation":
-        print("create_annotation. Echoing...")
-        #todo: insert data from d into database.
-        #for now, let's just echo the data back to the user.
-        await websocket.send(json.dumps(d))
-        print("echoed.")
+class UserScriptConnection:
+    def __init__(self, websocket):
+        self.websocket = websocket
+        self.interests = set()
+        self.queue = queue.Queue()
 
-async def negotiate_connection(websocket):
-    """
-    verifies that the client we're talking to has proper credentials and is using the appropriate protocols.
-    returns True if handshake succeeds, False otherwise.
-    """
+    async def producer(self):
+        while self.queue.empty():
+            await asyncio.sleep(0.1)
+        return self.queue.get()
 
-    #first message sent by the client should be a handshake with a dict containing their user id and token and protocol version.
-    response = await websocket.recv()
-    print("parsing handshake...")
-    try:
-        handshake = json.loads(response)
-    except json.decoder.JSONDecodeError:
-        print("Could not parse handshake: {}".format(repr(handshake)))
-        await websocket.send(json.dumps({"event_type": "dropped", "reason": "message was not recognizable JSON"}))
-        return False
-    print("parsed.")
+    async def handle_user_request(self, message):
+        print("Got message from client.")
+        print(repr(message))
+        d = json.loads(message)
+        if d["event_type"] == "register_interest":
+            self.interests.add(d["user_id"])
+        elif d["event_type"] == "create_annotation":
+            print("create_annotation. Echoing...")
+            #todo: insert data from d into database.
+            #for now, let's just echo the data back to the user.
+            await self.websocket.send(json.dumps(d))
+            print("echoed.")
 
-    print("validating handshake...")
-    for key in ("protocol_version", "user_id", "token"):
-        if key not in handshake:
-            print("key {} not present.".format(repr(key)))
-            await websocket.send(json.dumps({"event_type": "dropped", "reason": "handshake missing parameter {}".format(repr(key))}))
+    async def negotiate_connection(self):
+        """
+        verifies that the client we're talking to has proper credentials and is using the appropriate protocols.
+        returns True if handshake succeeds, False otherwise.
+        """
+
+        #first message sent by the client should be a handshake with a dict containing their user id and token and protocol version.
+        response = await self.websocket.recv()
+        print("parsing handshake...")
+        try:
+            handshake = json.loads(response)
+        except json.decoder.JSONDecodeError:
+            print("Could not parse handshake: {}".format(repr(handshake)))
+            await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "message was not recognizable JSON"}))
             return False
-    if int(handshake["protocol_version"]) < CURRENT_PROTOCOL_VERSION:
-        await websocket.send(json.dumps({"event_type": "dropped", "reason": "outdated protocol version"}))
-        return False
-    if handshake["token"] != "deadbeef": #todo: fetch actual token from db
-        await websocket.send(json.dumps({"event_type": "dropped", "reason": "invalid token"}))
-        return False
+        print("parsed.")
 
-    await websocket.send(json.dumps({"event_type": "validated"}))
-    print("Validated. Awaiting client requests.")
+        print("validating handshake...")
+        for key in ("protocol_version", "user_id", "token"):
+            if key not in handshake:
+                print("key {} not present.".format(repr(key)))
+                await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "handshake missing parameter {}".format(repr(key))}))
+                return False
+        if int(handshake["protocol_version"]) < CURRENT_PROTOCOL_VERSION:
+            await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "outdated protocol version"}))
+            return False
+        if handshake["token"] != "deadbeef": #todo: fetch actual token from db
+            await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "invalid token"}))
+            return False
 
-    #handshake validated. Stream is now open for client requests and server responses.
-    return True
+        await self.websocket.send(json.dumps({"event_type": "validated"}))
+        print("Validated. Awaiting client requests.")
+
+        #handshake validated. Stream is now open for client requests and server responses.
+        return True
+
+    async def run_forever(self):
+        with listener_queue_lock:
+            listener_queues.append(self.queue)
+
+        print("Connection opened.")
+        handshake_verified = await self.negotiate_connection()
+        if not handshake_verified:
+            return
+
+        #set of user ids that the client is interested in getting updates for.
+        interests = set()
+
+        listener_task = asyncio.ensure_future(self.websocket.recv())
+        producer_task = asyncio.ensure_future(self.producer())
+        while True:
+            done, pending = await asyncio.wait(
+                [listener_task, producer_task],
+                return_when=asyncio.FIRST_COMPLETED)
+
+            if listener_task in done:
+                print("Got message from client.")
+                message = listener_task.result()
+                await self.handle_user_request(message)
+                listener_task = asyncio.ensure_future(self.websocket.recv())
+
+            if producer_task in done:
+                print("Got message from producer queue.")
+                message = producer_task.result()
+                print(message)
+                producer_task = asyncio.ensure_future(self.producer())
 
 async def handler(websocket, path):
-    my_queue = queue.Queue()
-    with listener_queue_lock:
-        listener_queues.append(my_queue)
-    async def producer():
-        while my_queue.empty():
-            await asyncio.sleep(0.1)
-        return my_queue.get()
-
-    print("Connection opened.")
-    handshake_verified = await negotiate_connection(websocket)
-    if not handshake_verified:
-        return
-
-    #set of user ids that the client is interested in getting updates for.
-    interests = set()
-
-    listener_task = asyncio.ensure_future(websocket.recv())
-    producer_task = asyncio.ensure_future(producer())
-    while True:
-        done, pending = await asyncio.wait(
-            [listener_task, producer_task],
-            return_when=asyncio.FIRST_COMPLETED)
-
-        if listener_task in done:
-            print("Got message from client.")
-            message = listener_task.result()
-            await handle_user_request(websocket, message)
-            listener_task = asyncio.ensure_future(websocket.recv())
-
-        if producer_task in done:
-            print("Got message from producer queue.")
-            message = producer_task.result()
-            print(message)
-            producer_task = asyncio.ensure_future(producer())
+    connection = UserScriptConnection(websocket)
+    await connection.run_forever()
 
 start_server = websockets.serve(handler, 'localhost', 8000)
 
