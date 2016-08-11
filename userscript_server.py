@@ -62,6 +62,10 @@ class UserScriptConnection:
         returns True if handshake succeeds, False otherwise.
         """
 
+        async def drop(reason):
+            await self.websocket.send(json.dumps({"event_type": "dropped", "reason": reason}))
+            return False
+
         #first message sent by the client should be a handshake with a dict containing their user id and token and protocol version.
         response = await self.websocket.recv()
         print("parsing handshake...")
@@ -69,22 +73,19 @@ class UserScriptConnection:
             handshake = json.loads(response)
         except json.decoder.JSONDecodeError:
             print("Could not parse handshake: {}".format(repr(handshake)))
-            await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "message was not recognizable JSON"}))
-            return False
+            return await drop("message was not recognizable JSON")
         print("parsed.")
 
         print("validating handshake...")
         for key in ("protocol_version", "user_id", "token"):
             if key not in handshake:
                 print("key {} not present.".format(repr(key)))
-                await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "handshake missing parameter {}".format(repr(key))}))
-                return False
+                return await drop("handshake missing parameter {}".format(repr(key)))
+
         if int(handshake["protocol_version"]) < CURRENT_PROTOCOL_VERSION:
-            await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "outdated protocol version"}))
-            return False
+            return await drop("outdated protocol version")
         if handshake["token"] != "deadbeef": #todo: fetch actual token from db
-            await self.websocket.send(json.dumps({"event_type": "dropped", "reason": "invalid token"}))
-            return False
+            return await drop("invalid token")
 
         await self.websocket.send(json.dumps({"event_type": "validated"}))
         print("Validated. Awaiting client requests.")
