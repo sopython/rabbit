@@ -52,9 +52,19 @@ class UserScriptConnection:
         elif d["event_type"] == "create_annotation":
             print("create_annotation. Echoing...")
             #todo: insert data from d into database.
-            #for now, let's just echo the data back to the user.
-            await self.websocket.send(json.dumps(d))
-            print("echoed.")
+            #for now, let's just echo the data back into the master queue.
+            master_message_queue.put(d)
+
+    async def handle_queue_message(self, message):
+        print("Got message from producer queue.")
+        print(repr(message))
+        if isinstance(message, dict):
+            if message["event_type"] == "create_annotation":
+                await self.websocket.send(json.dumps(message))
+            else:
+                print("Unrecognized event type {}".format(message["event_type"]))
+        else:
+            print("Unrecognized message format: {}".format(repr(message)))
 
     async def negotiate_connection(self):
         """
@@ -113,15 +123,13 @@ class UserScriptConnection:
                 return_when=asyncio.FIRST_COMPLETED)
 
             if listener_task in done:
-                print("Got message from client.")
                 message = listener_task.result()
                 await self.handle_user_request(message)
                 listener_task = asyncio.ensure_future(self.websocket.recv())
 
             if producer_task in done:
-                print("Got message from producer queue.")
                 message = producer_task.result()
-                print(message)
+                await self.handle_queue_message(message)
                 producer_task = asyncio.ensure_future(self.producer())
 
 async def handler(websocket, path):
