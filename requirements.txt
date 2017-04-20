@@ -1,0 +1,8 @@
+autobahn==0.18.2
+beautifulsoup4==4.5.3
+bs4==0.0.1
+requests==2.13.0
+six==1.10.0
+SQLAlchemy==1.1.9
+txaio==2.7.0
+websockets==3.3
