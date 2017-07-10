@@ -94,6 +94,30 @@ class Rabbit(StackOverflowChatSession):
             if content == "!ping":
                 print("Detected a command. Replying...")
                 self.send_message(self.room, "pong")
+        if self._is_misformatted_code(content):
+            # TODO: ping the user (but keep track of it so we only remind once. perhaps count anyway, but notify only once)
+            msg = (
+                "That looks like improperly formatted code. "
+                "You should check the "
+                "[Illustrated Guide To Formatting Code In Chat](https://sopython.com/wiki/An_Illustrated_Guide_To_Formatting_Code_In_Chat), "
+                "and make sure you've read the [room rules](https://sopython.com/chatroom) since it's mentioned there."
+            )
+            self.send_message(self.room, msg)
+
+
+    def _is_misformatted_code(self, content):
+        """
+        Determine if the given message content contains unformatted python code.
+        Currently, only the triple-backtick multiline case is handled.
+        """
+        # in the future, perhaps some library that guesses langs could help
+        # (similar to how pygments does it.)
+        # Or we could just search for python keywords / popular module names
+        match = re.match(
+            r"<div class='full'>.*```.* <br>.*<br> ```.*</div>$",
+            content)
+        logger.debug("{} {} match the bad code regex".format(content, "did" if match is not None else "didn't"))
+        return match is not None
 
     def onClose(self, was_clean, code, reason):
         print('Closed:', reason)
