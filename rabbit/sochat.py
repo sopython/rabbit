@@ -1,19 +1,52 @@
 import requests
 import json
 import asyncio
+import logging
+import enum
 from urllib.parse import quote_plus
 from bs4 import BeautifulSoup as BS
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 
+
+logger = logging.getLogger('rabbit')
+
+EventType = enum.IntEnum('EventType', [
+    "message_posted",
+    "message_edited",
+    "user_entered",
+    "user_left",
+    "room_name_changed",
+    "message_starred",
+    "UNKNOWN",
+    "user_mentioned",
+    "message_flagged",
+    "message_deleted",
+    "file_added",
+    "moderator_flag",
+    "user_settings_chagned",
+    "global_notification",
+    "account_level_changed",
+    "user_notification",
+    "invitation",
+    "message_reply",
+    "message_moved_out",
+    "message_moved_in",
+    "time_break",
+    "feed_ticker",
+    "user_suspended",
+    "user_merged",
+])
 
 class StackOverflowChatSession:
     def __init__(self, email, password):
         url = "https://stackoverflow.com/users/login"
         login_data = {"email": email, "password": password}
         session = requests.Session()
+        logger.debug("Logging in")
         session.post(url,login_data)
         #TODO: perform some cursory checking to confirm that logging in actually worked
 
+        logger.debug("Getting cookie")
         x = session.get("http://chat.stackoverflow.com")
 
         soup = BS(x.content, "html.parser")
@@ -71,8 +104,6 @@ class StackOverflowChatSession:
         pass
     def onClose(self, was_clean, code, reason):
         pass
-    def onIdle(self):
-        pass
 
     def join_and_run_forever(self, roomid):
         session = self
@@ -88,15 +119,10 @@ class StackOverflowChatSession:
         factory = WebSocketClientFactory(url, headers={"Origin":"http://chat.stackoverflow.com"})
         factory.protocol = SoClient
         self.loop = asyncio.get_event_loop()
-        self.loop.call_later(1, self._onIdle)
         coro = self.loop.create_connection(factory, host, 80)
         self.loop.run_until_complete(coro)
         self.loop.run_forever()
         self.loop.close()
-
-    def _onIdle(self):
-        self.onIdle()
-        self.loop.call_later(1, self._onIdle)
 
     def _get_webservice_url(self, roomid):
         x = self._post("http://chat.stackoverflow.com/ws-auth", {"roomid":roomid})
@@ -111,6 +137,7 @@ class StackOverflowChatSession:
         Send a POST message using some predetermined headers and params that are always necessary when talking to SO.
         using this instead of requests.post will save you the effort of adding the fkey, cookie, etc yourself every time.
         """
+        logger.debug("Posting to {}".format(url))
         if params is None:
             params = {}
         params["fkey"] = self.fkey
