@@ -59,7 +59,7 @@ class UserScriptConnection:
 
     async def send_initial_user_info(self, user_id):
         #fetch relevant information about user and send it to client.
-        user = dbmodel.User.get_or_create(dbmodel.db_session, user_id)
+        user = dbmodel.User.get_or_create(dbmodel.get_session(), user_id)
 
         user_info_response = {
             "event_type": "update_user_info",
@@ -81,7 +81,7 @@ class UserScriptConnection:
         print("Sending response: {}".format(user_info_response))
         await self.websocket.send(json.dumps(user_info_response))
 
-        annotations = dbmodel.db_session.query(dbmodel.Annotation).filter_by(user_id=user_id).all() #todo: is an "order by" needed here?
+        annotations = dbmodel.get_session().query(dbmodel.Annotation).filter_by(user_id=user_id).all() #todo: is an "order by" needed here?
         for annotation in annotations:
             await self.websocket.send(json.dumps(self.create_annotation_message(annotation)))
 
@@ -103,8 +103,8 @@ class UserScriptConnection:
                 type = "comment",
                 text= d["text"]
             )
-            dbmodel.db_session.add(annotation)
-            dbmodel.db_session.commit()
+            dbmodel.get_session().add(annotation)
+            dbmodel.get_session().commit()
             print("Added.")
             master_message_queue.put(self.create_annotation_message(annotation))
 
@@ -194,7 +194,8 @@ async def handler(websocket, path):
     connection = UserScriptConnection(websocket)
     await connection.run_forever()
 
-start_server = websockets.serve(handler, 'localhost', 8000)
+def main():
+    start_server = websockets.serve(handler, 'localhost', 8000)
 
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+    asyncio.get_event_loop().run_until_complete(start_server)
+    asyncio.get_event_loop().run_forever()

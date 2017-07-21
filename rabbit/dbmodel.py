@@ -1,5 +1,6 @@
 import config
 from datetime import datetime, timedelta
+import functools
 import requests
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy import create_engine
@@ -100,6 +101,9 @@ class Annotation(Base):
     type = Column(String)
     text = Column(Text, nullable=False)
 
-engine = create_engine(config.database_connection_string)
-Base.metadata.create_all(engine)
-db_session = sessionmaker(engine)()
+
+@functools.lru_cache()
+def get_session():
+    engine = create_engine(config.database_connection_string)
+    Base.metadata.create_all(engine)
+    return sessionmaker(engine)()
